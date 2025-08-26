@@ -59,6 +59,12 @@
                 <p class="text-xs text-slate-500 mt-1">Higher = stricter. Default 1 for better recall.</p>
               </div>
             </div>
+
+            <div>
+              <label class="block text-sm font-medium mb-1">Sheet</label>
+              <select id="sheetSel" class="w-full rounded-lg border border-slate-300 px-3 py-2"></select>
+              <p class="text-xs text-slate-500 mt-1">If your data isn’t on the first sheet, pick it here.</p>
+            </div>
           </div>
 
           <div class="mt-4 flex flex-wrap items-center gap-3">
@@ -191,8 +197,9 @@
   const FALLBACK_LABEL = "SDG 9 – Industry, Innovation and Infrastructure";
 
   // State
-  let SHEETS_RAW = [];
-  let HEADERS = [];
+  let WB = null;               // workbook
+  let SHEETS_RAW = [];         // parsed rows (array of objects)
+  let HEADERS = [];            // parsed headers (array of strings)
   let SELECTED_TITLE_FIELD = "";
   let CURRENT_RULES = structuredClone(DEFAULT_RULES);
   let MAPPED_ROWS = [];
@@ -203,6 +210,7 @@
   const drop = document.getElementById("drop");
   const titleCol = document.getElementById("titleCol");
   const titleHint = document.getElementById("titleHint");
+  const sheetSel = document.getElementById("sheetSel");
   const maxSdgs = document.getElementById("maxSdgs");
   const scoreThresh = document.getElementById("scoreThresh");
   const mapBtn = document.getElementById("mapBtn");
@@ -254,6 +262,9 @@
       const idx = lc.indexOf(c);
       if (idx !== -1) return headers[idx];
     }
+    // try close matches
+    const alt = lc.findIndex(h => h.includes("title"));
+    if (alt !== -1) return headers[alt];
     return headers[0] || "";
   }
 
@@ -268,9 +279,7 @@
     const guess = guessTitleHeader(headers);
     if (guess) titleCol.value = guess;
     SELECTED_TITLE_FIELD = titleCol.value;
-    titleCol.addEventListener("change", () => {
-      SELECTED_TITLE_FIELD = titleCol.value;
-    });
+    titleCol.onchange = () => { SELECTED_TITLE_FIELD = titleCol.value; };
   }
 
   function loadRulesToEditor(obj){
@@ -290,6 +299,36 @@
     }
   }
 
+  // --- Robust sheet parsing: finds a header row and builds objects ---
+  function parseSheetToObjects(ws){
+    // Get raw 2D rows to detect header row reliably
+    const rows2D = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "", raw: false });
+    // find first row with at least 2 non-empty cells
+    let headerIdx = rows2D.findIndex(r => (r || []).filter(v => String(v).trim() !== "").length >= 2);
+    if (headerIdx === -1) throw new Error("Could not detect a header row.");
+    const rawHeaders = (rows2D[headerIdx] || []).map(v => String(v || "").trim());
+    // make headers unique, readable
+    const seen = {};
+    const headers = rawHeaders.map(h => {
+      let name = h || "Column";
+      name = name.replace(/\s+/g," ").trim();
+      if (!name) name = "Column";
+      let base = name, i = 1;
+      while (seen[name]) name = `${base}_${++i}`;
+      seen[name] = 1;
+      return name;
+    });
+    // convert remaining rows to objects
+    const body = rows2D.slice(headerIdx + 1)
+      .filter(r => (r || []).some(v => String(v).trim() !== "")); // drop entirely blank rows
+    const objs = body.map(r => {
+      const o = {};
+      headers.forEach((h, idx) => o[h] = r[idx] ?? "");
+      return o;
+    });
+    return { headers, rows: objs, headerIdx };
+  }
+
   function scoreTitleAgainstRules(title, rules){
     const norm = normalize(title);
     const tokens = new Set(tokenize(title));
@@ -300,15 +339,13 @@
       (def.phrases || []).forEach(ph=>{
         const phn = normalize(ph);
         if (phn && norm.includes(phn)){
-          score += 2;
-          matches.push(ph);
+          score += 2; matches.push(ph);
         }
       });
       (def.keywords || []).forEach(kw=>{
         const kwn = normalize(kw);
         if (kwn && tokens.has(kwn)){
-          score += 1;
-          matches.push(kw);
+          score += 1; matches.push(kw);
         }
       });
       if (score > 0){
@@ -323,9 +360,9 @@
     return (labels || []).map(lbl => (lbl.match(/^SDG\s+(\d+)/)?.[1] ?? "")).filter(Boolean).join(",");
   }
 
+  const FALLBACK_LABEL = "SDG 9 – Industry, Innovation and Infrastructure";
   function ensureFallback(topLabel, allLabels){
     if (topLabel) return { topLabel, allLabels };
-    // no match → force SDG 9
     return { topLabel: FALLBACK_LABEL, allLabels: [FALLBACK_LABEL] };
   }
 
@@ -348,11 +385,9 @@
         return { top, allLabels, scoreStr, terms };
       };
 
-      // try chosen threshold, then back off to 1 if needed
       let { top, allLabels, scoreStr, terms } = compute(baseThresh);
       if (!top && baseThresh > 1) ({ top, allLabels, scoreStr, terms } = compute(1));
 
-      // guarantee a label (fallback to SDG 9)
       const forced = ensureFallback(top, allLabels);
 
       out.push({
@@ -368,7 +403,6 @@
   }
 
   function renderPreview(rows, titleField){
-    const previewBody = document.getElementById("previewBody");
     previewBody.innerHTML = "";
     const n = Math.min(20, rows.length);
     for (let i=0;i<n;i++){
@@ -397,7 +431,7 @@
 
   function updateMappedStats(rows){
     const total = SHEETS_RAW.length || 0;
-    const mapped = rows.filter(r => (r.SDG_Top||"").trim() !== "").length; // will be 100% with fallback
+    const mapped = rows.filter(r => (r.SDG_Top||"").trim() !== "").length;
     const pct = total ? Math.round((mapped/total)*100) : 0;
     const unmapped = total - mapped;
     const el = document.getElementById("mappedStats");
@@ -405,29 +439,60 @@
     return { total, mapped, pct, unmapped };
   }
 
+  // ---- Workbook + Sheet handling ----
+  function populateSheetSelector(wb){
+    sheetSel.innerHTML = "";
+    wb.SheetNames.forEach((name, idx) => {
+      const opt = document.createElement("option");
+      opt.value = name;
+      opt.textContent = name;
+      if (idx === 0) opt.selected = true;
+      sheetSel.appendChild(opt);
+    });
+    sheetSel.onchange = () => parseActiveSheet();
+  }
+
+  function parseActiveSheet(){
+    try{
+      const active = sheetSel.value || WB.SheetNames[0];
+      const ws = WB.Sheets[active];
+      const { headers, rows, headerIdx } = parseSheetToObjects(ws);
+
+      if (!rows.length){
+        setStatus(`No data rows found under the header in sheet "${active}". Try another sheet or check the file.`, "error");
+        titleCol.innerHTML = ""; HEADERS = []; SHEETS_RAW = [];
+        return;
+      }
+
+      HEADERS = headers;
+      SHEETS_RAW = rows;
+      populateHeaderDropdown(HEADERS);
+
+      titleHint.textContent = `Loaded "${active}" (${rows.length} rows). Detected header at row ${headerIdx + 1}.`;
+      setStatus("Sheet parsed. Ready to map.", "ok");
+      document.getElementById("mappedStats").textContent = "";
+    } catch (e){
+      setStatus("Error parsing sheet: " + e.message, "error");
+      titleCol.innerHTML = "";
+      HEADERS = []; SHEETS_RAW = [];
+    }
+  }
+
   // File loading
   async function handleFile(file){
-    setStatus("Reading file…");
-    SOURCE_FILENAME = file.name || "data";
-    const data = await file.arrayBuffer();
-    const wb = XLSX.read(data, { type: "array" });
-    const sheetName = wb.SheetNames[0];
-    const ws = wb.Sheets[sheetName];
-    const rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
-    if (!rows.length){
-      setStatus("No rows found in the first sheet.", "error");
-      return;
+    try{
+      setStatus("Reading file…");
+      SOURCE_FILENAME = file.name || "data";
+      const data = await file.arrayBuffer();
+      WB = XLSX.read(data, { type: "array" });
+      populateSheetSelector(WB);
+      parseActiveSheet();
+    } catch(e){
+      setStatus("Failed to read file: " + e.message, "error");
     }
-    SHEETS_RAW = rows;
-    HEADERS = Object.keys(rows[0]);
-    populateHeaderDropdown(HEADERS);
-    titleHint.textContent = `Loaded "${sheetName}" (${rows.length} rows). Pick your title column if needed.`;
-    setStatus("File loaded. Ready to map.", "ok");
-    document.getElementById("mappedStats").textContent = "";
   }
 
   // Drag & Drop
-  const drop = document.getElementById("drop");
   drop.addEventListener("dragover", (e)=>{ e.preventDefault(); drop.classList.add("bg-indigo-50"); });
   drop.addEventListener("dragleave", ()=> drop.classList.remove("bg-indigo-50"));
   drop.addEventListener("drop", (e)=>{
@@ -443,7 +508,7 @@
 
   // Actions
   mapBtn.addEventListener("click", ()=>{
-    if (!SHEETS_RAW.length){ setStatus("Please upload a file first.", "error"); return; }
+    if (!SHEETS_RAW.length){ setStatus("Please upload a file and ensure a sheet is parsed.", "error"); return; }
     if (!SELECTED_TITLE_FIELD){ setStatus("Please select the Project Title column.", "error"); return; }
     setStatus("Mapping SDGs…");
     MAPPED_ROWS = mapAllRows();
@@ -459,13 +524,12 @@
   });
 
   resetBtn.addEventListener("click", ()=>{
-    SHEETS_RAW = [];
-    HEADERS = [];
-    MAPPED_ROWS = [];
+    WB = null; SHEETS_RAW = []; HEADERS = []; MAPPED_ROWS = [];
     SELECTED_TITLE_FIELD = "";
     titleCol.innerHTML = "";
-    document.getElementById("previewBody").innerHTML = "";
+    previewBody.innerHTML = "";
     fileInput.value = "";
+    sheetSel.innerHTML = "";
     document.getElementById("mappedStats").textContent = "";
     setStatus("Reset. Upload a new file to begin.");
   });
