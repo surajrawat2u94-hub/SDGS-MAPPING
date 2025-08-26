@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>SDG Mapper — Offline Excel</title>
+  <title>SDG Mapper — 100% Coverage</title>
   <!-- Tailwind (CDN) -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- SheetJS -->
@@ -18,7 +18,7 @@
 <body class="min-h-screen bg-slate-50 text-slate-800">
   <header class="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-slate-200">
     <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-      <h1 class="text-xl sm:text-2xl font-semibold tracking-tight">SDG Mapper <span class="text-slate-400 text-base">— map project titles to UN SDGs</span></h1>
+      <h1 class="text-xl sm:text-2xl font-semibold tracking-tight">SDG Mapper <span class="text-slate-400 text-base">— map project titles to UN SDGs (100% coverage)</span></h1>
       <div class="text-sm text-slate-500">Client-side • No data leaves your browser</div>
     </div>
   </header>
@@ -29,7 +29,7 @@
       <div class="lg:col-span-2">
         <div id="drop" class="dropzone glass rounded-2xl p-6 text-center">
           <div class="text-lg font-medium mb-2">Upload Excel or CSV</div>
-          <p class="text-slate-600 mb-4">Drag & drop your file here (XLSX, XLS, or CSV) — 2000+ rows supported.</p>
+          <p class="text-slate-600 mb-4">Drag & drop your file here (XLSX, XLS, or CSV). Handles 2000+ rows easily.</p>
           <input id="fileInput" type="file" accept=".xlsx,.xls,.csv" class="mx-auto block text-sm" />
         </div>
 
@@ -39,24 +39,24 @@
             <div>
               <label class="block text-sm font-medium mb-1">Select your Title column</label>
               <select id="titleCol" class="w-full rounded-lg border border-slate-300 px-3 py-2"></select>
-              <p id="titleHint" class="text-xs text-slate-500 mt-1">Detected automatically after upload.</p>
+              <p id="titleHint" class="text-xs text-slate-500 mt-1">Auto-detected after upload (e.g., “Project Title”).</p>
             </div>
 
             <div class="grid grid-cols-2 gap-3">
               <div>
                 <label class="block text-sm font-medium mb-1">Max SDGs per title</label>
                 <select id="maxSdgs" class="w-full rounded-lg border border-slate-300 px-3 py-2">
-                  <option value="1">1 (Top only)</option>
-                  <option value="2" selected>2</option>
+                  <option value="1">1</option>
+                  <option value="2">2</option>
                   <option value="3">3</option>
-                  <option value="4">4</option>
+                  <option value="4" selected>4</option>
                   <option value="5">5</option>
                 </select>
               </div>
               <div>
                 <label class="block text-sm font-medium mb-1">Score threshold</label>
-                <input id="scoreThresh" type="number" value="2" min="1" max="99" class="w-full rounded-lg border border-slate-300 px-3 py-2" />
-                <p class="text-xs text-slate-500 mt-1">Higher = stricter. Default 2.</p>
+                <input id="scoreThresh" type="number" value="1" min="1" max="99" class="w-full rounded-lg border border-slate-300 px-3 py-2" />
+                <p class="text-xs text-slate-500 mt-1">Higher = stricter. Default 1 for better recall.</p>
               </div>
             </div>
           </div>
@@ -68,6 +68,7 @@
             <span id="status" class="text-sm text-slate-500"></span>
             <span id="mappedStats" class="text-sm text-slate-600"></span>
           </div>
+          <p class="mt-2 text-xs text-slate-500">If no SDG matches a title, the tool assigns <b>SDG 9 – Industry, Innovation and Infrastructure</b> automatically.</p>
         </div>
       </div>
 
@@ -77,7 +78,7 @@
           <h2 class="text-lg font-semibold">SDG Rules (editable)</h2>
           <button id="collapseRules" class="text-sm text-indigo-600 hover:underline">Collapse/Expand</button>
         </div>
-        <p class="text-sm text-slate-600 mt-1">You can add/remove keywords or phrases. <span class="mono">phrases</span> score higher than single-word <span class="mono">keywords</span>.</p>
+        <p class="text-sm text-slate-600 mt-1">You can add/remove keywords or phrases. <span class="mono">phrases</span> score 2, <span class="mono">keywords</span> score 1.</p>
         <textarea id="rulesEditor" class="mono w-full h-64 rounded-lg border border-slate-300 px-3 py-2 mt-3 text-xs"></textarea>
         <div class="mt-3 flex gap-3">
           <button id="useRules" class="rounded-lg bg-emerald-600 text-white px-3 py-2 hover:bg-emerald-700">Use Edited Rules</button>
@@ -107,7 +108,7 @@
     </section>
 
     <footer class="mt-10 text-xs text-slate-500">
-      <p>Heuristic, rule-based mapping. Adjust Max SDGs or Threshold for stricter/looser results. Try Threshold=1 if coverage is low.</p>
+      <p>Heuristic, rule-based mapping with guaranteed fallback to SDG 9 for any unmapped title. Adjust max SDGs or threshold to tune breadth.</p>
     </footer>
   </main>
 
@@ -150,7 +151,7 @@
     },
     "SDG 9 – Industry, Innovation and Infrastructure": {
       phrases: ["industry 4.0","advanced manufacturing","research and innovation","transport infrastructure","smart logistics"],
-      keywords: ["infrastructure","manufacturing","industrial","innovation","R&D","robotics","automation","additive manufacturing","3D printing","IoT","sensor","5G","semiconductor","materials","supply chain","logistics","process engineering","incubator","technology development"]
+      keywords: ["infrastructure","manufacturing","industrial","innovation","R&D","robotics","automation","additive manufacturing","3D printing","IoT","sensor","5G","semiconductor","materials","supply chain","logistics","process engineering","incubator","technology development","nanotechnology","material science","blockchain"]
     },
     "SDG 10 – Reduced Inequalities": {
       phrases: ["social inclusion","disability inclusion","financial inclusion for marginalized"],
@@ -166,7 +167,7 @@
     },
     "SDG 13 – Climate Action": {
       phrases: ["climate change adaptation","climate change mitigation","low-carbon transition","net zero","nature-based solutions"],
-      keywords: ["climate","carbon","emission","GHG","greenhouse","decarbonization","resilience","extreme weather","NDC","sequestration","carbon capture","offset","net zero","carbon neutral","mitigation","adaptation"]
+      keywords: ["climate","carbon","emission","GHG","greenhouse","decarbonization","resilience","extreme weather","NDC","sequestration","carbon capture","offset","net zero","carbon neutral","mitigation","adaptation","methane"]
     },
     "SDG 14 – Life Below Water": {
       phrases: ["marine conservation","coastal resilience","blue economy","coral reef restoration","marine pollution"],
@@ -185,6 +186,9 @@
       keywords: ["partnership","collaboration","consortium","bilateral","multilateral","alliance","cooperation","data sharing","technology transfer","south-south"]
     }
   };
+
+  // Fallback label used when nothing matches:
+  const FALLBACK_LABEL = "SDG 9 – Industry, Innovation and Infrastructure";
 
   // State
   let SHEETS_RAW = [];
@@ -227,6 +231,7 @@
       .replace(/\bGBV\b/gi, " gender based violence ")
       .replace(/\bEVs?\b/gi, " electric vehicle ")
       .replace(/\bWASH\b/gi, " water sanitation hygiene ")
+      .replace(/\bICT\b/gi, " information communication technology ")
       .replace(/\bAgri\b/gi, " agriculture ");
   }
 
@@ -314,9 +319,19 @@
     return results;
   }
 
+  function numberOnlyFromLabels(labels){
+    return (labels || []).map(lbl => (lbl.match(/^SDG\s+(\d+)/)?.[1] ?? "")).filter(Boolean).join(",");
+  }
+
+  function ensureFallback(topLabel, allLabels){
+    if (topLabel) return { topLabel, allLabels };
+    // no match → force SDG 9
+    return { topLabel: FALLBACK_LABEL, allLabels: [FALLBACK_LABEL] };
+  }
+
   function mapAllRows(){
-    const maxK = parseInt(maxSdgs.value,10) || 2;
-    const baseThresh = parseInt(scoreThresh.value,10) || 2;
+    const maxK = parseInt(maxSdgs.value,10) || 4;
+    const baseThresh = parseInt(scoreThresh.value,10) || 1;
 
     const out = [];
     for (let i=0;i<SHEETS_RAW.length;i++){
@@ -330,28 +345,30 @@
         const allLabels = keep.map(k=>k.label);
         const scoreStr = scored.slice(0, maxK).map(s=> `${s.sdg.split(" ")[1]}:${s.score}`).join(", ");
         const terms = keep.flatMap(k=>k.matches).filter((v,i,a)=>a.indexOf(v)===i).join("; ");
-        return { top, allLabels, scoreStr, terms, scored };
+        return { top, allLabels, scoreStr, terms };
       };
 
       // try chosen threshold, then back off to 1 if needed
       let { top, allLabels, scoreStr, terms } = compute(baseThresh);
-      if (!top) ({ top, allLabels, scoreStr, terms } = compute(1));
+      if (!top && baseThresh > 1) ({ top, allLabels, scoreStr, terms } = compute(1));
 
-      const sdgNums = (allLabels || []).map(lbl => (lbl.match(/^SDG\s+(\d+)/)?.[1] ?? "")).filter(Boolean).join(",");
+      // guarantee a label (fallback to SDG 9)
+      const forced = ensureFallback(top, allLabels);
 
       out.push({
         ...row,
-        SDG_Top: top,
-        SDG_All: (allLabels||[]).join(" | "),
+        SDG_Top: forced.topLabel,
+        SDG_All: (forced.allLabels||[]).join(" | "),
         SDG_Scores: scoreStr,
         SDG_Matched_Terms: terms,
-        SDG_Number_Only: sdgNums
+        SDG_Number_Only: numberOnlyFromLabels(forced.allLabels)
       });
     }
     return out;
   }
 
   function renderPreview(rows, titleField){
+    const previewBody = document.getElementById("previewBody");
     previewBody.innerHTML = "";
     const n = Math.min(20, rows.length);
     for (let i=0;i<n;i++){
@@ -380,7 +397,7 @@
 
   function updateMappedStats(rows){
     const total = SHEETS_RAW.length || 0;
-    const mapped = rows.filter(r => (r.SDG_Top||"").trim() !== "").length;
+    const mapped = rows.filter(r => (r.SDG_Top||"").trim() !== "").length; // will be 100% with fallback
     const pct = total ? Math.round((mapped/total)*100) : 0;
     const unmapped = total - mapped;
     const el = document.getElementById("mappedStats");
@@ -410,6 +427,7 @@
   }
 
   // Drag & Drop
+  const drop = document.getElementById("drop");
   drop.addEventListener("dragover", (e)=>{ e.preventDefault(); drop.classList.add("bg-indigo-50"); });
   drop.addEventListener("dragleave", ()=> drop.classList.remove("bg-indigo-50"));
   drop.addEventListener("drop", (e)=>{
@@ -427,7 +445,7 @@
   mapBtn.addEventListener("click", ()=>{
     if (!SHEETS_RAW.length){ setStatus("Please upload a file first.", "error"); return; }
     if (!SELECTED_TITLE_FIELD){ setStatus("Please select the Project Title column.", "error"); return; }
-    setStatus("Mapping SDGs… this may take a few seconds for large files.");
+    setStatus("Mapping SDGs…");
     MAPPED_ROWS = mapAllRows();
     renderPreview(MAPPED_ROWS, SELECTED_TITLE_FIELD);
     downloadBtn.disabled = false;
@@ -446,7 +464,7 @@
     MAPPED_ROWS = [];
     SELECTED_TITLE_FIELD = "";
     titleCol.innerHTML = "";
-    previewBody.innerHTML = "";
+    document.getElementById("previewBody").innerHTML = "";
     fileInput.value = "";
     document.getElementById("mappedStats").textContent = "";
     setStatus("Reset. Upload a new file to begin.");
