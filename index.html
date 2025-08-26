@@ -4,12 +4,11 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>SDG Mapper — Offline Excel</title>
-  <!-- Tailwind (CDN) for quick modern UI -->
+  <!-- Tailwind (CDN) -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- SheetJS for Excel/CSV parsing + writing -->
+  <!-- SheetJS -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
-    /* fallback if Tailwind fails to load */
     .tw-hidden{display:none}
     .glass { backdrop-filter: blur(8px); background: rgba(255,255,255,0.65); }
     .dropzone { border: 2px dashed #94a3b8; }
@@ -50,6 +49,7 @@
                   <option value="1">1 (Top only)</option>
                   <option value="2" selected>2</option>
                   <option value="3">3</option>
+                  <option value="4">4</option>
                   <option value="5">5</option>
                 </select>
               </div>
@@ -66,6 +66,7 @@
             <button id="downloadBtn" disabled class="rounded-xl bg-slate-900 text-white px-4 py-2 disabled:opacity-40 hover:bg-black">Download XLSX</button>
             <button id="resetBtn" class="rounded-xl border border-slate-300 px-4 py-2 hover:bg-slate-100">Reset</button>
             <span id="status" class="text-sm text-slate-500"></span>
+            <span id="mappedStats" class="text-sm text-slate-600"></span>
           </div>
         </div>
       </div>
@@ -106,14 +107,13 @@
     </section>
 
     <footer class="mt-10 text-xs text-slate-500">
-      <p>Heuristic, rule-based mapping. You can tighten or broaden matches by editing rules or the score threshold.</p>
+      <p>Heuristic, rule-based mapping. Adjust Max SDGs or Threshold for stricter/looser results. Try Threshold=1 if coverage is low.</p>
     </footer>
   </main>
 
   <script>
   // -------------------------------
-  // Default SDG rules (phrases weigh more than single keywords)
-  // You can safely edit these in the UI.
+  // Default SDG rules (phrases weigh 2, keywords 1)
   // -------------------------------
   const DEFAULT_RULES = {
     "SDG 1 – No Poverty": {
@@ -121,52 +121,52 @@
       keywords: ["poverty","livelihood","microfinance","cash transfer","welfare","unemployment","low-income","vulnerable","social safety"]
     },
     "SDG 2 – Zero Hunger": {
-      phrases: ["food security","post-harvest loss","nutrition security","sustainable agriculture"],
+      phrases: ["food security","post-harvest loss","nutrition security","sustainable agriculture","crop diversification"],
       keywords: ["hunger","malnutrition","nutrition","agriculture","farming","crop","farmer","fertilizer","irrigation","agro","horticulture","livestock","dairy","fisheries","aquaculture","seed","wheat","rice","maize","millet","pulses","cold chain","warehouse"]
     },
     "SDG 3 – Good Health and Well-being": {
-      phrases: ["public health","primary healthcare","mental health","maternal health","non-communicable disease","infectious disease","telemedicine"],
-      keywords: ["health","healthcare","hospital","medical","medicine","clinical","diagnostic","drug","vaccine","vaccination","epidemiology","cancer","diabetes","cardiac","tuberculosis","malaria","HIV","COVID","wellbeing","well-being","pharmaceutical","pathology"]
+      phrases: ["public health","primary healthcare","mental health","maternal health","non-communicable disease","infectious disease","telemedicine","health systems strengthening"],
+      keywords: ["health","healthcare","hospital","medical","medicine","clinical","diagnostic","drug","vaccine","vaccination","epidemiology","cancer","diabetes","cardiac","tuberculosis","malaria","HIV","COVID","wellbeing","well-being","pharmaceutical","pathology","ayush","telehealth","ehealth","public health"]
     },
     "SDG 4 – Quality Education": {
       phrases: ["higher education","early childhood education","teacher training","digital learning","skill development","capacity building"],
-      keywords: ["education","school","literacy","curriculum","pedagogy","student","teacher","learning","elearning","e-learning","MOOC","STEM education","edtech","classroom","scholarship"]
+      keywords: ["education","school","literacy","curriculum","pedagogy","student","teacher","learning","elearning","e-learning","MOOC","STEM education","edtech","classroom","scholarship","nep","training"]
     },
     "SDG 5 – Gender Equality": {
       phrases: ["women empowerment","gender mainstreaming","gender-based violence","sexual harassment"],
-      keywords: ["gender","women","girls","female","menstrual","maternal rights","childcare","parity","equality","LGBTQ","inclusive leadership"]
+      keywords: ["gender","women","girls","female","menstrual","maternal rights","childcare","parity","equality","LGBTQ","inclusive leadership","gbv"]
     },
     "SDG 6 – Clean Water and Sanitation": {
       phrases: ["drinking water","wastewater treatment","water purification","water quality monitoring","rural sanitation","WASH programme"],
-      keywords: ["water","sanitation","WASH","sewage","sewerage","groundwater","river","lake","arsenic","fluoride","nitrate","desalination","filtration","membrane","chlorination","stormwater"]
+      keywords: ["water","sanitation","WASH","sewage","sewerage","groundwater","river","lake","arsenic","fluoride","nitrate","desalination","filtration","membrane","chlorination","stormwater","swachh","jal","namami gange"]
     },
     "SDG 7 – Affordable and Clean Energy": {
       phrases: ["renewable energy","energy efficiency","smart grid","distributed generation","fuel cell","green hydrogen"],
-      keywords: ["energy","solar","photovoltaic","PV","wind","hydro","biogas","biomass","biofuel","battery","storage","inverter","grid","electrification","geothermal","microgrid","power factor","efficiency"]
+      keywords: ["energy","solar","photovoltaic","PV","wind","hydro","biogas","biomass","biofuel","battery","storage","inverter","grid","electrification","geothermal","microgrid","power factor","efficiency","electrolyser","electrolyzer"]
     },
     "SDG 8 – Decent Work and Economic Growth": {
       phrases: ["job creation","youth employment","financial inclusion for MSMEs","sustainable tourism","creative economy"],
-      keywords: ["employment","jobs","MSME","SME","entrepreneurship","startup","productivity","economic growth","labour","labor","tourism","workforce","skill","microenterprise"]
+      keywords: ["employment","jobs","MSME","SME","entrepreneurship","startup","productivity","economic growth","labour","labor","tourism","workforce","skill","microenterprise","atmanirbhar"]
     },
     "SDG 9 – Industry, Innovation and Infrastructure": {
       phrases: ["industry 4.0","advanced manufacturing","research and innovation","transport infrastructure","smart logistics"],
-      keywords: ["infrastructure","manufacturing","industrial","innovation","R&D","robotics","automation","additive manufacturing","3D printing","IoT","sensor","5G","semiconductor","materials","supply chain","logistics","process engineering"]
+      keywords: ["infrastructure","manufacturing","industrial","innovation","R&D","robotics","automation","additive manufacturing","3D printing","IoT","sensor","5G","semiconductor","materials","supply chain","logistics","process engineering","incubator","technology development"]
     },
     "SDG 10 – Reduced Inequalities": {
       phrases: ["social inclusion","disability inclusion","financial inclusion for marginalized"],
-      keywords: ["inequality","inclusion","inclusive","marginalized","disability","accessibility","migrant","refugee","tribal","equity","remoteness","barrier-free"]
+      keywords: ["inequality","inclusion","inclusive","marginalized","disability","accessibility","migrant","refugee","tribal","equity","barrier-free"]
     },
     "SDG 11 – Sustainable Cities and Communities": {
       phrases: ["smart city","affordable housing","urban mobility","transit-oriented development","disaster resilience","heritage conservation"],
-      keywords: ["urban","city","municipal","transport","traffic","public transport","metro","bus","parking","housing","slum","air quality","solid waste","land use","zoning","urban planning","public space","community"]
+      keywords: ["urban","city","municipal","transport","traffic","public transport","metro","bus","parking","housing","slum","air quality","solid waste","land use","zoning","urban planning","public space","community","mobility","waste"]
     },
     "SDG 12 – Responsible Consumption and Production": {
       phrases: ["circular economy","life cycle assessment","sustainable supply chain","resource efficiency","eco-design"],
-      keywords: ["consumption","production","recycling","reuse","remanufacturing","waste management","hazardous waste","EPR","industrial symbiosis","cleaner production","pollution prevention"]
+      keywords: ["consumption","production","recycling","reuse","remanufacturing","waste management","hazardous waste","EPR","industrial symbiosis","cleaner production","pollution prevention","circular","lca","life cycle","epr","hazardous"]
     },
     "SDG 13 – Climate Action": {
       phrases: ["climate change adaptation","climate change mitigation","low-carbon transition","net zero","nature-based solutions"],
-      keywords: ["climate","carbon","emission","GHG","greenhouse","decarbonization","resilience","extreme weather","NDC","sequestration","carbon capture","offset"]
+      keywords: ["climate","carbon","emission","GHG","greenhouse","decarbonization","resilience","extreme weather","NDC","sequestration","carbon capture","offset","net zero","carbon neutral","mitigation","adaptation"]
     },
     "SDG 14 – Life Below Water": {
       phrases: ["marine conservation","coastal resilience","blue economy","coral reef restoration","marine pollution"],
@@ -187,11 +187,11 @@
   };
 
   // State
-  let SHEETS_RAW = [];   // array of row objects from first sheet
-  let HEADERS = [];      // column headers
-  let SELECTED_TITLE_FIELD = ""; // chosen title column
+  let SHEETS_RAW = [];
+  let HEADERS = [];
+  let SELECTED_TITLE_FIELD = "";
   let CURRENT_RULES = structuredClone(DEFAULT_RULES);
-  let MAPPED_ROWS = [];  // after mapping
+  let MAPPED_ROWS = [];
   let SOURCE_FILENAME = "data";
 
   // UI refs
@@ -218,9 +218,22 @@
     statusEl.textContent = msg;
   }
 
+  function expandAbbreviations(str){
+    return (str||"")
+      .replace(/\bAI\b/gi, " artificial intelligence ")
+      .replace(/\bPV\b/gi, " photovoltaic ")
+      .replace(/\bMSME\b/gi, " micro small and medium enterprises ")
+      .replace(/\bNCDs?\b/gi, " non communicable disease ")
+      .replace(/\bGBV\b/gi, " gender based violence ")
+      .replace(/\bEVs?\b/gi, " electric vehicle ")
+      .replace(/\bWASH\b/gi, " water sanitation hygiene ")
+      .replace(/\bAgri\b/gi, " agriculture ");
+  }
+
   function normalize(str){
-    return (str || "").toString().toLowerCase()
-      .replace(/[^\p{L}\p{N}\s-]/gu," ") // remove punctuation, keep letters/numbers
+    return expandAbbreviations((str || "").toString())
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}\s-]/gu," ")
       .replace(/\s+/g," ")
       .trim();
   }
@@ -230,13 +243,12 @@
   }
 
   function guessTitleHeader(headers){
-    const candidates = ["project title", "title", "project", "name", "topic", "proposal title"];
+    const candidates = ["project title","title","project","name","topic","proposal title"];
     const lc = headers.map(h => (h||"").toString().trim().toLowerCase());
     for (const c of candidates){
       const idx = lc.indexOf(c);
       if (idx !== -1) return headers[idx];
     }
-    // fallback: first text-like column
     return headers[0] || "";
   }
 
@@ -263,7 +275,6 @@
   function safeParseRules(){
     try {
       const obj = JSON.parse(rulesEditor.value);
-      // quick validation
       Object.values(obj).forEach(v=>{
         if (!("phrases" in v) || !("keywords" in v)) throw new Error("Each SDG must have 'phrases' and 'keywords'");
       });
@@ -277,13 +288,10 @@
   function scoreTitleAgainstRules(title, rules){
     const norm = normalize(title);
     const tokens = new Set(tokenize(title));
-
-    const results = []; // {sdg,label,score,matches}
+    const results = [];
     for (const [label, def] of Object.entries(rules)){
       let score = 0;
       const matches = [];
-
-      // phrase matches (weight 2)
       (def.phrases || []).forEach(ph=>{
         const phn = normalize(ph);
         if (phn && norm.includes(phn)){
@@ -291,8 +299,6 @@
           matches.push(ph);
         }
       });
-
-      // keyword matches (weight 1) — whole token matches
       (def.keywords || []).forEach(kw=>{
         const kwn = normalize(kw);
         if (kwn && tokens.has(kwn)){
@@ -300,40 +306,46 @@
           matches.push(kw);
         }
       });
-
       if (score > 0){
         results.push({ sdg: label.split("–")[0].trim().replace(/\s+/g," "), label, score, matches });
       }
     }
-
-    // sort by score desc, tie-breaker: more matches
     results.sort((a,b)=> b.score - a.score || b.matches.length - a.matches.length);
     return results;
   }
 
   function mapAllRows(){
     const maxK = parseInt(maxSdgs.value,10) || 2;
-    const thresh = parseInt(scoreThresh.value,10) || 2;
+    const baseThresh = parseInt(scoreThresh.value,10) || 2;
 
     const out = [];
     for (let i=0;i<SHEETS_RAW.length;i++){
       const row = SHEETS_RAW[i];
       const title = (row[SELECTED_TITLE_FIELD] ?? "").toString();
-      const scored = scoreTitleAgainstRules(title, CURRENT_RULES);
 
-      const keep = scored.filter(s => s.score >= thresh).slice(0, maxK);
-      const top = keep[0]?.label || "";
+      const compute = (thresh) => {
+        const scored = scoreTitleAgainstRules(title, CURRENT_RULES);
+        const keep = scored.filter(s => s.score >= thresh).slice(0, maxK);
+        const top = keep[0]?.label || "";
+        const allLabels = keep.map(k=>k.label);
+        const scoreStr = scored.slice(0, maxK).map(s=> `${s.sdg.split(" ")[1]}:${s.score}`).join(", ");
+        const terms = keep.flatMap(k=>k.matches).filter((v,i,a)=>a.indexOf(v)===i).join("; ");
+        return { top, allLabels, scoreStr, terms, scored };
+      };
 
-      const allLabels = keep.map(k=>k.label);
-      const scoreStr = scored.slice(0, maxK).map(s=> `${s.sdg.split(" ")[1]}:${s.score}`).join(", ");
-      const terms = keep.flatMap(k=>k.matches).filter((v,i,a)=>a.indexOf(v)===i).join("; ");
+      // try chosen threshold, then back off to 1 if needed
+      let { top, allLabels, scoreStr, terms } = compute(baseThresh);
+      if (!top) ({ top, allLabels, scoreStr, terms } = compute(1));
+
+      const sdgNums = (allLabels || []).map(lbl => (lbl.match(/^SDG\s+(\d+)/)?.[1] ?? "")).filter(Boolean).join(",");
 
       out.push({
         ...row,
         SDG_Top: top,
-        SDG_All: allLabels.join(" | "),
+        SDG_All: (allLabels||[]).join(" | "),
         SDG_Scores: scoreStr,
-        SDG_Matched_Terms: terms
+        SDG_Matched_Terms: terms,
+        SDG_Number_Only: sdgNums
       });
     }
     return out;
@@ -366,30 +378,35 @@
     XLSX.writeFile(wb, outName);
   }
 
+  function updateMappedStats(rows){
+    const total = SHEETS_RAW.length || 0;
+    const mapped = rows.filter(r => (r.SDG_Top||"").trim() !== "").length;
+    const pct = total ? Math.round((mapped/total)*100) : 0;
+    const unmapped = total - mapped;
+    const el = document.getElementById("mappedStats");
+    if (el) el.textContent = `Mapped ${mapped}/${total} (${pct}%), Unmapped ${unmapped}`;
+    return { total, mapped, pct, unmapped };
+  }
+
   // File loading
   async function handleFile(file){
     setStatus("Reading file…");
     SOURCE_FILENAME = file.name || "data";
-    const ext = (SOURCE_FILENAME.split(".").pop() || "").toLowerCase();
-
     const data = await file.arrayBuffer();
     const wb = XLSX.read(data, { type: "array" });
-
     const sheetName = wb.SheetNames[0];
     const ws = wb.Sheets[sheetName];
     const rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
-
     if (!rows.length){
       setStatus("No rows found in the first sheet.", "error");
       return;
     }
-
     SHEETS_RAW = rows;
     HEADERS = Object.keys(rows[0]);
     populateHeaderDropdown(HEADERS);
-
     titleHint.textContent = `Loaded "${sheetName}" (${rows.length} rows). Pick your title column if needed.`;
     setStatus("File loaded. Ready to map.", "ok");
+    document.getElementById("mappedStats").textContent = "";
   }
 
   // Drag & Drop
@@ -410,12 +427,12 @@
   mapBtn.addEventListener("click", ()=>{
     if (!SHEETS_RAW.length){ setStatus("Please upload a file first.", "error"); return; }
     if (!SELECTED_TITLE_FIELD){ setStatus("Please select the Project Title column.", "error"); return; }
-    setStatus("Mapping SDGs… this may take a few seconds for 2000+ rows.");
-    // Apply rules
+    setStatus("Mapping SDGs… this may take a few seconds for large files.");
     MAPPED_ROWS = mapAllRows();
     renderPreview(MAPPED_ROWS, SELECTED_TITLE_FIELD);
     downloadBtn.disabled = false;
-    setStatus("Done. Preview updated — you can download the XLSX now.", "ok");
+    const s = updateMappedStats(MAPPED_ROWS);
+    setStatus(`Done. Mapped ${s.mapped}/${s.total} rows (${s.pct}%). Preview updated — you can download the XLSX now.`, "ok");
   });
 
   downloadBtn.addEventListener("click", ()=>{
@@ -431,12 +448,14 @@
     titleCol.innerHTML = "";
     previewBody.innerHTML = "";
     fileInput.value = "";
+    document.getElementById("mappedStats").textContent = "";
     setStatus("Reset. Upload a new file to begin.");
   });
 
   restoreRulesBtn.addEventListener("click", ()=>{
     CURRENT_RULES = structuredClone(DEFAULT_RULES);
     loadRulesToEditor(CURRENT_RULES);
+    setStatus("Default rules restored.", "ok");
   });
 
   useRulesBtn.addEventListener("click", ()=>{
@@ -456,7 +475,6 @@
   // Init
   loadRulesToEditor(DEFAULT_RULES);
   setStatus("Ready. Upload your Excel/CSV to start.");
-
   </script>
 </body>
 </html>
